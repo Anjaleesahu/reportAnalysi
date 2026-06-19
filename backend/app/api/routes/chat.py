@@ -1,0 +1,12 @@
+from fastapi import APIRouter, Depends
+
+from app.schemas.chat import ChatRequest
+from app.services import chat_service
+from app.api.deps import get_current_user
+
+router = APIRouter(tags=["AI Health Chatbot"])
+
+
+@router.post("/")
+def chat_with_assistant(chat_req: ChatRequest, current_user: dict = Depends(get_current_user)):
+    return chat_service.reply_to_user(current_user["_id"], chat_req)

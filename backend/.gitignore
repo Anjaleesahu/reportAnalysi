@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secrets
+.env
+!.env.example
+
+# Databases (we use MongoDB; this guards any local SQLite fallback)
+*.db
+*.sqlite3
+
+# User uploads (generated at runtime, may contain PII)
+uploads/*
+!uploads/.gitkeep
