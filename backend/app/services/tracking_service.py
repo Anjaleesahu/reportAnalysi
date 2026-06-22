@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from app.repositories import tracking_repository
@@ -31,7 +31,7 @@ def log_daily(user_id: int, track_in: DailyTrackCreate) -> Dict[str, Any]:
         sleep_hours=track_in.sleep_hours,
         water_ml=track_in.water_ml,
         symptoms=symptoms_str,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     return serialize_track(created)
 

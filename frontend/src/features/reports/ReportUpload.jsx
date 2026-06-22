@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { Upload, FileUp, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { uploadReport } from "../../api/reportsApi";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";

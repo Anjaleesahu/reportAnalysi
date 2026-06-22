@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Trash2, AlertCircle, FileText, Calendar, ChevronDown, ChevronUp, Clock, FileCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trash2, AlertCircle, FileText, ChevronDown, ChevronUp, Clock, FileCheck } from "lucide-react";
 import { getHistory, getReport, deleteReport } from "../api/reportsApi";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";

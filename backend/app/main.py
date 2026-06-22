@@ -18,11 +18,13 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS
+# CORS — the API authenticates via Bearer tokens (not cookies), so credentials
+# are not needed. `allow_origins=["*"]` with `allow_credentials=True` is an
+# invalid combination per the CORS spec, so credentials are disabled here.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

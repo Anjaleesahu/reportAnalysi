@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { HeartPulse, LogOut, User, Settings, Shield } from "lucide-react";
 import Button from "../ui/Button";

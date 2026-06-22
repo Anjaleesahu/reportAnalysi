@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import ReportUpload from "../features/reports/ReportUpload";
 import LabValuesChart from "../features/dashboard/LabValuesChart";
-import HealthSummary from "../features/dashboard/HealthSummary";
-import BiomarkerComparison from "../features/dashboard/BiomarkerComparison";
 import { getLabTrends } from "../api/reportsApi";
 import { getSummary } from "../api/trackingApi";
-import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, User, TrendingUp, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
@@ -34,15 +32,29 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  const getLatestBiomarker = (testName) => {
-    const list = trends?.[testName] || [];
-    if (list.length === 0) return null;
-    return list[list.length - 1];
+  // Match biomarker keys case-insensitively and across naming variants. The
+  // stored test_name casing/label depends on the extractor (e.g. "Hemoglobin"
+  // vs "hemoglobin", "Total Cholesterol", "Fasting Blood Sugar"), so an exact
+  // key lookup would often miss. Prefer an exact (case-insensitive) match, then
+  // fall back to the shortest key that contains an alias (so the primary
+  // "Hemoglobin" wins over "Mean Corpuscular Hemoglobin").
+  const getLatestBiomarker = (aliases) => {
+    if (!trends) return null;
+    const keys = Object.keys(trends);
+    const lower = aliases.map((a) => a.toLowerCase());
+    let key = keys.find((k) => lower.includes(k.toLowerCase()));
+    if (!key) {
+      key = keys
+        .filter((k) => lower.some((a) => k.toLowerCase().includes(a)))
+        .sort((a, b) => a.length - b.length)[0];
+    }
+    const list = key ? trends[key] : [];
+    return list && list.length ? list[list.length - 1] : null;
   };
 
-  const glucose = getLatestBiomarker("Glucose");
-  const hemoglobin = getLatestBiomarker("Hemoglobin");
-  const cholesterol = getLatestBiomarker("Cholesterol");
+  const glucose = getLatestBiomarker(["glucose", "blood sugar", "fasting blood sugar"]);
+  const hemoglobin = getLatestBiomarker(["hemoglobin", "haemoglobin"]);
+  const cholesterol = getLatestBiomarker(["cholesterol", "total cholesterol"]);
 
   const statusColors = {
     Normal: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm shadow-emerald-500/5",

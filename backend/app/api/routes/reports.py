@@ -10,9 +10,12 @@ router = APIRouter(tags=["Medical Reports"])
 
 
 @router.post("/upload", response_model=MedicalReportDetail)
-async def upload_report(file: UploadFile = File(...)):
+async def upload_report(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     file_bytes = await file.read()
-    return report_service.process_upload(file_bytes, file.filename)
+    return report_service.process_upload(file_bytes, file.filename, current_user["_id"])
 
 
 @router.get("/history", response_model=List[MedicalReportResponse])

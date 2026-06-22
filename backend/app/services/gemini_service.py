@@ -9,44 +9,6 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 
 
-def _extract_with_regex(text: str) -> Dict[str, Any]:
-    """Fallback parser for common biomarkers when Gemini is unavailable."""
-    patterns = {
-        "hemoglobin": r"hemoglobin\s*[:=]?\s*([0-9]+(?:\.\d+)?)\s*(g/dl|g/dL|gm/dl|gm/dL)?",
-        "glucose": r"glucose\s*[:=]?\s*([0-9]+(?:\.\d+)?)\s*(mg/dl|mg/dL|mmol/l|mmol/L)?",
-        "cholesterol": r"cholesterol\s*[:=]?\s*([0-9]+(?:\.\d+)?)\s*(mg/dl|mg/dL)?",
-    }
-
-    extracted: Dict[str, Any] = {"hemoglobin": None, "glucose": None, "cholesterol": None}
-
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            value = float(match.group(1))
-            unit = match.group(2) or ("g/dL" if key == "hemoglobin" else "mg/dL")
-            extracted[key] = {"value": value, "unit": unit, "reference_range": None}
-
-    return extracted
-
-
-def _extract_all_tests_with_regex(text: str) -> Dict[str, Any]:
-    """Generic fallback: extract any test-like NAME: VALUE [UNIT] occurrences."""
-    results: List[Dict[str, Any]] = []
-
-    pattern = re.compile(
-        r"([A-Za-z][A-Za-z0-9\-\s\(\)/%]+?)\s*[:=]?\s*([0-9]+(?:[\.,][0-9]+)?(?:/\d+)?)(?:\s*(mg/dL|mg/dl|g/dL|g/dl|mmol/L|mmol/l|mmol|IU/L|%|cells/µL|cells/ul|x10\^9/L))?",
-        re.IGNORECASE,
-    )
-
-    for m in pattern.finditer(text):
-        name = m.group(1).strip()
-        value = m.group(2).strip()
-        unit = m.group(3) if m.group(3) else None
-        results.append({"name": name, "value": value, "unit": unit})
-
-    return {"tests": results}
-
-
 def _normalize_test_name(name: str) -> str:
     normalized = name.strip()
     lower = normalized.lower()
@@ -158,63 +120,6 @@ Example output:
     except Exception:
         tests = _parse_lab_table_text(text)
         return {"tests": tests}
-
-
-def extract_structured_labs(text: str) -> Dict[str, Any]:
-    """Use Gemini when available, otherwise fall back to deterministic regex extraction."""
-    try:
-        client = get_gemini_client()
-    except HTTPException:
-        return _extract_with_regex(text)
-
-    prompt = """
-You are a high-precision medical data extraction AI.
-Analyze the following extracted medical report text and extract the lab values, units, and reference ranges for the following tests:
-1. Hemoglobin
-2. Glucose (also sometimes listed as Blood Sugar, Fasting Blood Sugar, Random Blood Sugar, etc.)
-3. Cholesterol (Total Cholesterol)
-
-RULES:
-- Do NOT fabricate or guess values.
-- If a test is not found in the text, return null for its object.
-- Extract values only if they are explicitly stated in the text.
-- If the report lists multiple Glucose values (e.g. Fasting and Post-Prandial), extract the Fasting value if available, otherwise any primary Glucose value.
-
-Text to analyze:
----
-%s
----
-
-Provide the output strictly as a JSON object matching this schema:
-{
-  "hemoglobin": {
-    "value": float or null,
-    "unit": "g/dL" or other unit as written,
-    "reference_range": "extracted reference range string (e.g. 13.5-17.5)" or null
-  },
-  "glucose": {
-    "value": float or null,
-    "unit": "mg/dL" or other unit as written,
-    "reference_range": "extracted reference range string" or null
-  },
-  "cholesterol": {
-    "value": float or null,
-    "unit": "mg/dL" or other unit as written,
-    "reference_range": "extracted reference range string" or null
-  }
-}
-""" % text
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
-        )
-
-        extracted_data = json.loads(response.text)
-        return extracted_data
-    except Exception:
-        return _extract_with_regex(text)
 
 
 def get_chatbot_response(

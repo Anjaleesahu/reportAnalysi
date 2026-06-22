@@ -1,4 +1,3 @@
-import React from "react";
 
 /**
  * Loading spinner. Sizes map to the existing border-width / dimension combos

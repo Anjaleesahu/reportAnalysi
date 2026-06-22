@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Send, MessageSquare, AlertTriangle, ShieldCheck, HeartPulse, User } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, AlertTriangle, ShieldCheck, HeartPulse, User } from "lucide-react";
 import { sendMessage } from "../../api/chatApi";
 import Button from "../../components/ui/Button";
 

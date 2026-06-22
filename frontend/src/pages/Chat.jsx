@@ -1,4 +1,3 @@
-import React from "react";
 import Chatbot from "../features/chat/Chatbot";
 import { MessageSquare } from "lucide-react";
 

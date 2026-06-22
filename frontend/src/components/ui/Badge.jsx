@@ -1,4 +1,3 @@
-import React from "react";
 
 /**
  * Status pill (Normal / High / Low) used in lab value displays.

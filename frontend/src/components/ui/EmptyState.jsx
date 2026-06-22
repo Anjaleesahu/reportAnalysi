@@ -1,4 +1,3 @@
-import React from "react";
 
 /**
  * Placeholder shown when there is no data (e.g. "No data available",

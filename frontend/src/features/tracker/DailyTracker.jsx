@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Plus, Minus, Moon, Droplets, CheckCircle, Smile } from "lucide-react";
 import { logDaily } from "../../api/trackingApi";
 import Button from "../../components/ui/Button";

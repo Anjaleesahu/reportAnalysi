@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     MONGO_URI: str = "mongodb://localhost:27017"
     MONGO_DB_NAME: str = "health_companion"
 
-    # JWT auth
-    JWT_SECRET: str = "supersecretjwtsecretkeychangeinproduction1234567890"
+    # JWT auth — REQUIRED (no default): must be supplied via .env / environment
+    # so a known secret is never shipped in source. App fails fast if missing.
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 

@@ -1,4 +1,3 @@
-import React from "react";
 
 /**
  * The common glassmorphism panel used across pages. Wraps the `.glass-panel`

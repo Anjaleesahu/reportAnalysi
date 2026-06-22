@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import HTTPException, status
@@ -99,7 +99,7 @@ def classify_lab_value(name: str, value: float) -> Dict[str, str]:
     return {"status": "Normal", "ref_range": "N/A"}
 
 
-def process_upload(file_bytes: bytes, filename: str, user_id: int = 1) -> Dict[str, Any]:
+def process_upload(file_bytes: bytes, filename: str, user_id: int) -> Dict[str, Any]:
     """OCR + parse a report, persist it and its lab values, return the report detail."""
     # Validate extension
     ext = os.path.splitext(filename.lower())[1]
@@ -124,7 +124,7 @@ def process_upload(file_bytes: bytes, filename: str, user_id: int = 1) -> Dict[s
         )
 
     # 3. Build lab value rows in memory (so we never persist an orphan report)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     labs_to_create = []
     for item in parsed_json.get("tests", []):
         try:

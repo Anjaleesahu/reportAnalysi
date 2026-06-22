@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import DailyTracker from "../features/tracker/DailyTracker";
 import { getHistory, getSummary } from "../api/trackingApi";
-import { Calendar, Moon, Droplets, Smile, AlertCircle, TrendingUp, Sparkles, Flame } from "lucide-react";
+import { Calendar, Moon, Droplets, AlertCircle, TrendingUp, Flame } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 const Tracker = () => {
   const [history, setHistory] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 

@@ -1,4 +1,3 @@
-import React from "react";
 
 /**
  * Labeled input used in forms (Login / Register / DailyTracker).

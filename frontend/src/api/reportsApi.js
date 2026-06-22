@@ -26,15 +26,3 @@ export const deleteReport = async (reportId) => {
   const response = await client.delete(`/api/reports/${reportId}`);
   return response.data;
 };
-
-// NOTE: BiomarkerComparison historically calls these paths WITHOUT the `/api`
-// prefix. Kept exactly as-is to preserve existing behavior byte-for-byte.
-export const getHistoryUnprefixed = async () => {
-  const response = await client.get("/reports/history");
-  return response.data;
-};
-
-export const getReportUnprefixed = async (reportId) => {
-  const response = await client.get(`/reports/${reportId}`);
-  return response.data;
-};

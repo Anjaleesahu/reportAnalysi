@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Heart, AlertTriangle, CheckCircle, TrendingUp, Loader } from "lucide-react";
 import Card from "../../components/ui/Card";
 
