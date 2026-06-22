@@ -18,3 +18,16 @@ export const getMe = async () => {
   const response = await client.get("/api/auth/me");
   return response.data;
 };
+
+export const updateProfile = async (fields) => {
+  const response = await client.put("/api/auth/me", fields);
+  return response.data;
+};
+
+export const changePassword = async ({ current_password, new_password }) => {
+  const response = await client.post("/api/auth/change-password", {
+    current_password,
+    new_password,
+  });
+  return response.data;
+};

@@ -1,11 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { HeartPulse, LogOut, User, Settings, Shield } from "lucide-react";
+import { HeartPulse, LogOut, User, Settings } from "lucide-react";
 import Button from "../ui/Button";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const goToProfile = () => {
+    setDropdownOpen(false);
+    navigate("/profile");
+  };
 
   // Get user initials for the avatar
   const getInitials = () => {
@@ -73,7 +80,7 @@ const Navbar = () => {
 
                 <Button
                   variant="ghost"
-                  onClick={() => setDropdownOpen(false)}
+                  onClick={goToProfile}
                   className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-left w-full"
                   icon={<User className="h-4 w-4 text-indigo-400" />}
                 >
@@ -82,20 +89,11 @@ const Navbar = () => {
 
                 <Button
                   variant="ghost"
-                  onClick={() => setDropdownOpen(false)}
+                  onClick={goToProfile}
                   className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-left w-full"
                   icon={<Settings className="h-4 w-4 text-cyan-400" />}
                 >
                   <span>Account Settings</span>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  onClick={() => setDropdownOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-left w-full"
-                  icon={<Shield className="h-4 w-4 text-emerald-400" />}
-                >
-                  <span>Privacy Log</span>
                 </Button>
 
                 <div className="border-t border-slate-800/80 my-1" />

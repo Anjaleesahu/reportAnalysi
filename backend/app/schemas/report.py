@@ -29,6 +29,7 @@ class MedicalReportResponse(BaseModel):
 
     id: int
     filename: str
+    summary: Optional[str] = None
     created_at: datetime
 
 

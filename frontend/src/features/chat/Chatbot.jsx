@@ -1,16 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, AlertTriangle, ShieldCheck, HeartPulse, User } from "lucide-react";
-import { sendMessage } from "../../api/chatApi";
+import { Send, AlertTriangle, ShieldCheck, HeartPulse, User, Trash2 } from "lucide-react";
+import { sendMessage, getChatHistory, clearChatHistory } from "../../api/chatApi";
 import Button from "../../components/ui/Button";
+
+const WELCOME = {
+  role: "model",
+  content:
+    "Hello! I am your AI Health Companion. I can explain your biomarker metrics (Hemoglobin, Glucose, Cholesterol) and offer lifestyle guidance based strictly on the medical reports you upload. How can I help you today?",
+};
+
+const fmtTime = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const Chatbot = () => {
   const [messages, setMessages] = useState([
-    {
-      role: "model",
-      content:
-        "Hello! I am your AI Health Companion. I can explain your biomarker metrics (Hemoglobin, Glucose, Cholesterol) and offer lifestyle guidance based strictly on the medical reports you upload. How can I help you today?",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
+    { ...WELCOME, timestamp: fmtTime(new Date()) },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +27,40 @@ const Chatbot = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  // Load persisted conversation on open
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const history = await getChatHistory();
+        if (active && Array.isArray(history) && history.length > 0) {
+          setMessages(
+            history.map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.created_at ? fmtTime(new Date(m.created_at)) : "",
+            }))
+          );
+        }
+      } catch {
+        /* keep the default welcome message on failure */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleClear = async () => {
+    try {
+      await clearChatHistory();
+    } catch {
+      /* ignore */
+    }
+    setMessages([{ ...WELCOME, timestamp: fmtTime(new Date()) }]);
+    setError(null);
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -89,9 +126,20 @@ const Chatbot = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 text-[9.5px] font-bold px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-          Secure Client
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClear}
+            title="Clear conversation"
+            className="flex items-center gap-1 text-[9.5px] font-bold px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" />
+            Clear
+          </button>
+          <div className="flex items-center gap-1 text-[9.5px] font-bold px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+            Secure Client
+          </div>
         </div>
       </div>
 

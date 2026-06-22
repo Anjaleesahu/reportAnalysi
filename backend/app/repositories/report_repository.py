@@ -4,13 +4,21 @@ from typing import Any, Dict, List, Optional
 from app.db.mongodb import reports_collection, next_sequence
 
 
-def create(user_id: int, filename: str, file_path: str, extracted_text: Optional[str], created_at: datetime) -> Dict[str, Any]:
+def create(
+    user_id: int,
+    filename: str,
+    file_path: str,
+    extracted_text: Optional[str],
+    created_at: datetime,
+    summary: Optional[str] = None,
+) -> Dict[str, Any]:
     doc = {
         "_id": next_sequence("medical_reports"),
         "user_id": user_id,
         "filename": filename,
         "file_path": file_path,
         "extracted_text": extracted_text,
+        "summary": summary,
         "created_at": created_at,
     }
     reports_collection.insert_one(doc)

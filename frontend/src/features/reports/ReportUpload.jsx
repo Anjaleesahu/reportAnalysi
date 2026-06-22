@@ -151,6 +151,17 @@ const ReportUpload = ({ onUploadSuccess }) => {
             <h4 className="font-display font-bold text-white text-xs uppercase tracking-wider">Report Parsed Successfully</h4>
           </div>
 
+          {extractedData.summary && (
+            <div className="mb-6 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-300 block mb-1.5">
+                AI Summary
+              </span>
+              <p className="text-[11.5px] leading-relaxed text-slate-300 whitespace-pre-line">
+                {extractedData.summary}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {extractedData.lab_values.map((lab) => {
               // Map Low/High/Normal to Warning/Critical/Normal colors

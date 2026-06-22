@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import ReportsHistory from "./pages/ReportsHistory";
 import Tracker from "./pages/Tracker";
 import Chat from "./pages/Chat";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -57,6 +58,16 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <Chat />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Profile />
                 </AppLayout>
               </ProtectedRoute>
             }

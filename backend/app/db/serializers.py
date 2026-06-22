@@ -3,10 +3,24 @@ from typing import Any, Dict, List, Optional
 
 
 def serialize_user(doc: Dict[str, Any]) -> Dict[str, Any]:
+    dob = doc.get("date_of_birth")
+    if hasattr(dob, "date"):  # stored as datetime in Mongo -> expose a plain date
+        dob = dob.date()
     return {
         "id": doc["_id"],
         "email": doc["email"],
         "full_name": doc.get("full_name"),
+        "sex": doc.get("sex"),
+        "date_of_birth": dob,
+        "created_at": doc.get("created_at"),
+    }
+
+
+def serialize_chat_message(doc: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": doc["_id"],
+        "role": doc["role"],
+        "content": doc["content"],
         "created_at": doc.get("created_at"),
     }
 
@@ -32,6 +46,7 @@ def serialize_report(
     out = {
         "id": doc["_id"],
         "filename": doc["filename"],
+        "summary": doc.get("summary"),
         "created_at": doc.get("created_at"),
     }
     if detail:

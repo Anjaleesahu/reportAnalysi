@@ -11,6 +11,7 @@ users_collection = db["users"]
 reports_collection = db["medical_reports"]
 lab_values_collection = db["lab_values"]
 daily_tracks_collection = db["daily_tracks"]
+chat_messages_collection = db["chat_messages"]
 counters_collection = db["counters"]
 
 
@@ -38,6 +39,7 @@ def init_db():
         unique=True,
         name="uq_user_date",
     )
+    chat_messages_collection.create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
 
 
 def get_db():

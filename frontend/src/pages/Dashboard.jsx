@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import ReportUpload from "../features/reports/ReportUpload";
 import LabValuesChart from "../features/dashboard/LabValuesChart";
+import BiomarkerComparison from "../features/dashboard/BiomarkerComparison";
 import { getLabTrends } from "../api/reportsApi";
 import { getSummary } from "../api/trackingApi";
-import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, AlertTriangle } from "lucide-react";
+import { exportDashboardPdf } from "../utils/pdf";
+import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, AlertTriangle, FileDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
@@ -56,6 +58,18 @@ const Dashboard = () => {
   const hemoglobin = getLatestBiomarker(["hemoglobin", "haemoglobin"]);
   const cholesterol = getLatestBiomarker(["cholesterol", "total cholesterol"]);
 
+  const handleExportPdf = () => {
+    exportDashboardPdf({
+      userName: user?.full_name || user?.email || "",
+      biomarkers: [
+        { label: "Glucose", value: glucose?.value, unit: glucose?.unit, status: glucose?.status },
+        { label: "Hemoglobin", value: hemoglobin?.value, unit: hemoglobin?.unit, status: hemoglobin?.status },
+        { label: "Cholesterol", value: cholesterol?.value, unit: cholesterol?.unit, status: cholesterol?.status },
+      ],
+      alerts: summary?.alerts || [],
+    });
+  };
+
   const statusColors = {
     Normal: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm shadow-emerald-500/5",
     High: "bg-red-500/10 text-red-400 border border-red-500/20 shadow-sm shadow-red-500/5",
@@ -94,13 +108,24 @@ const Dashboard = () => {
             Your AuraHealth workspace is fully sync’d. Upload health documents to generate instant structured analysis and chat with your medical AI companion.
           </p>
         </div>
-        <Link
-          to="/tracker"
-          className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-4.5 py-3 rounded-xl transition duration-200 shadow-md hover:shadow-indigo-500/25 shrink-0 hover:-translate-y-0.5 cursor-pointer"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Log Daily Habits
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 font-bold text-xs px-4 py-3 rounded-xl transition duration-200 border border-slate-700/60 hover:-translate-y-0.5 cursor-pointer"
+            title="Export health snapshot as PDF"
+          >
+            <FileDown className="h-4 w-4" />
+            Export PDF
+          </button>
+          <Link
+            to="/tracker"
+            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-4.5 py-3 rounded-xl transition duration-200 shadow-md hover:shadow-indigo-500/25 hover:-translate-y-0.5 cursor-pointer"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Log Daily Habits
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -202,7 +227,9 @@ const Dashboard = () => {
             {/* Left Column (Charts and Uploader) */}
             <div className="lg:col-span-2 space-y-8">
               <LabValuesChart trends={trends} />
-              
+
+              <BiomarkerComparison />
+
               <div className="glass-panel p-6">
                 <h4 className="font-display font-bold text-white text-sm mb-4 flex items-center gap-2 border-b border-slate-800/80 pb-3">
                   <Activity className="h-4.5 w-4.5 text-indigo-400" />

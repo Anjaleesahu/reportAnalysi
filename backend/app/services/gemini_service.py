@@ -157,6 +157,58 @@ Example output:
         return {"tests": tests}
 
 
+def _fallback_summary(labs: List[Dict[str, Any]]) -> str:
+    """Deterministic summary used when Gemini is unavailable."""
+    abnormal = [l for l in labs if str(l.get("status", "")).lower() in ("high", "low")]
+    total = len(labs)
+    if not abnormal:
+        return (
+            f"All {total} extracted value(s) fall within their normal reference ranges. "
+            "This is an automated overview, not medical advice — please consult a physician."
+        )
+    lines = ", ".join(
+        f"{l['test_name']} {l['value']}{(' ' + l['unit']) if l.get('unit') else ''} ({l['status']})"
+        for l in abnormal
+    )
+    return (
+        f"{len(abnormal)} of {total} value(s) are outside the normal range: {lines}. "
+        "This is an automated overview, not medical advice — please consult a physician."
+    )
+
+
+def generate_report_summary(labs: List[Dict[str, Any]]) -> str:
+    """Plain-language summary of a report's lab values, highlighting abnormal ones.
+    Falls back to a deterministic summary if Gemini is unavailable/overloaded."""
+    if not labs:
+        return "No lab values were extracted from this report."
+
+    try:
+        client = get_gemini_client()
+    except HTTPException:
+        return _fallback_summary(labs)
+
+    lines = "\n".join(
+        f"- {l['test_name']}: {l['value']} {l.get('unit') or ''} "
+        f"(status: {l.get('status')}, ref: {l.get('reference_range') or 'N/A'})"
+        for l in labs
+    )
+    prompt = f"""
+You are a careful medical assistant. Write a SHORT plain-language summary (2-4 sentences)
+of the following lab results for a layperson. Clearly call out any values that are High or Low
+and what they generally relate to, in simple terms. Do NOT diagnose or prescribe. End with a
+one-line reminder to consult a physician.
+
+Lab values:
+{lines}
+"""
+    try:
+        response = _generate_content(client, contents=prompt)
+        text = (response.text or "").strip()
+        return text or _fallback_summary(labs)
+    except Exception:
+        return _fallback_summary(labs)
+
+
 def get_chatbot_response(
     user_message: str,
     chat_history: List[Dict[str, str]],

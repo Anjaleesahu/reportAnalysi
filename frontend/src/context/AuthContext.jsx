@@ -67,8 +67,13 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Merge updated profile fields into the cached user (after a profile edit).
+  const updateUser = (fields) => {
+    setUser((prev) => ({ ...prev, ...fields }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

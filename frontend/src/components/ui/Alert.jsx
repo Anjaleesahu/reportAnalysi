@@ -9,6 +9,10 @@ const variants = {
     "flex gap-2.5 items-center bg-red-500/10 border border-red-500/20 rounded-xl p-3.5 text-xs text-red-400 font-bold leading-normal",
   errorPage:
     "flex gap-2 items-center bg-red-500/10 border border-red-500/20 text-red-300 p-4 rounded-xl text-xs font-semibold",
+  success:
+    "flex gap-2.5 items-center bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 text-xs text-emerald-400 font-bold leading-normal",
+  info:
+    "flex gap-2.5 items-center bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3.5 text-xs text-indigo-300 font-bold leading-normal",
 };
 
 const Alert = ({

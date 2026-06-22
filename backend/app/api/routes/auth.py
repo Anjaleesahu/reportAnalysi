@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.schemas.auth import RegisterRequest, Token
+from app.schemas.auth import RegisterRequest, Token, UserResponse, ProfileUpdate, ChangePasswordRequest
 from app.services import auth_service
+from app.db.serializers import serialize_user
 from app.api.deps import get_current_user
 
 router = APIRouter()
@@ -9,7 +10,9 @@ router = APIRouter()
 
 @router.post("/register")
 def register(req: RegisterRequest):
-    return auth_service.register_user(req.email, req.password, req.full_name)
+    return auth_service.register_user(
+        req.email, req.password, req.full_name, req.sex, req.date_of_birth
+    )
 
 
 @router.post("/login", response_model=Token, summary="User Login")
@@ -39,11 +42,16 @@ async def login(request: Request):
     return auth_service.authenticate(identifier, password)
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserResponse)
 def get_me(current_user: dict = Depends(get_current_user)):
-    return {
-        "id": current_user["_id"],
-        "email": current_user["email"],
-        "full_name": current_user.get("full_name"),
-        "created_at": current_user.get("created_at"),
-    }
+    return serialize_user(current_user)
+
+
+@router.put("/me", response_model=UserResponse)
+def update_me(update: ProfileUpdate, current_user: dict = Depends(get_current_user)):
+    return auth_service.update_profile(current_user["_id"], update.model_dump())
+
+
+@router.post("/change-password")
+def change_password(req: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
+    return auth_service.change_password(current_user, req.current_password, req.new_password)

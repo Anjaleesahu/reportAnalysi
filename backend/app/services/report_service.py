@@ -5,7 +5,7 @@ from typing import Any, Dict
 from fastapi import HTTPException, status
 
 from app.services.ocr_service import extract_text
-from app.services.gemini_service import extract_all_tests
+from app.services.gemini_service import extract_all_tests, generate_report_summary
 from app.repositories import report_repository, lab_value_repository
 from app.db.serializers import serialize_report, serialize_lab_value
 
@@ -71,42 +71,78 @@ BIOMARKER_REFERENCE_RANGES = {
 }
 
 
-def classify_lab_value(name: str, value: float) -> Dict[str, str]:
-    """Classify biomarker status based on standard medical reference ranges."""
+# Sex-specific reference ranges (override the unisex table above when the user's
+# sex is known). Values are (low, high).
+GENDERED_REFERENCE_RANGES = {
+    "hemoglobin": {"male": (13.5, 17.5), "female": (12.0, 15.5)},
+    "haemoglobin": {"male": (13.5, 17.5), "female": (12.0, 15.5)},
+    "rbc": {"male": (4.5, 5.9), "female": (4.0, 5.2)},
+    "r.b.c.": {"male": (4.5, 5.9), "female": (4.0, 5.2)},
+    "red blood cell": {"male": (4.5, 5.9), "female": (4.0, 5.2)},
+    "pcv": {"male": (40, 52), "female": (36, 46)},
+    "packed cell volume": {"male": (40, 52), "female": (36, 46)},
+    "hct": {"male": (40, 52), "female": (36, 46)},
+}
+
+
+def _status_for(value: float, low: float, high: float) -> Dict[str, str]:
+    if value < low:
+        status_val = "Low"
+    elif value > high:
+        status_val = "High"
+    else:
+        status_val = "Normal"
+    return {"status": status_val, "ref_range": f"{low} - {high}"}
+
+
+def classify_lab_value(name: str, value: float, sex: str = None) -> Dict[str, str]:
+    """Classify biomarker status. Uses sex-specific ranges when the user's sex is
+    known and the biomarker has them; otherwise the unisex reference table."""
     name_lower = name.lower().strip()
 
-    def _classify(ref_data):
-        range_low = ref_data["range_low"]
-        range_high = ref_data["range_high"]
-        if value < range_low:
-            status_val = "Low"
-        elif value > range_high:
-            status_val = "High"
-        else:
-            status_val = "Normal"
-        return {"status": status_val, "ref_range": f"{range_low} - {range_high}"}
+    # 1) Sex-specific ranges take priority when available
+    if sex in ("male", "female"):
+        for key, by_sex in GENDERED_REFERENCE_RANGES.items():
+            if key == name_lower or key in name_lower or name_lower in key:
+                low, high = by_sex[sex]
+                return _status_for(value, low, high)
 
-    # Exact match lookup
+    # 2) Exact match in the unisex table
     if name_lower in BIOMARKER_REFERENCE_RANGES:
-        return _classify(BIOMARKER_REFERENCE_RANGES[name_lower])
+        ref = BIOMARKER_REFERENCE_RANGES[name_lower]
+        return _status_for(value, ref["range_low"], ref["range_high"])
 
-    # Partial match lookup
-    for key, ref_data in BIOMARKER_REFERENCE_RANGES.items():
+    # 3) Partial match in the unisex table
+    for key, ref in BIOMARKER_REFERENCE_RANGES.items():
         if key in name_lower or name_lower in key:
-            return _classify(ref_data)
+            return _status_for(value, ref["range_low"], ref["range_high"])
 
-    # Default to Normal if no reference range found
+    # 4) Unknown biomarker
     return {"status": "Normal", "ref_range": "N/A"}
 
 
-def process_upload(file_bytes: bytes, filename: str, user_id: int) -> Dict[str, Any]:
-    """OCR + parse a report, persist it and its lab values, return the report detail."""
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def process_upload(file_bytes: bytes, filename: str, user: Dict[str, Any]) -> Dict[str, Any]:
+    """OCR + parse a report, persist it (with an AI summary) and its lab values,
+    classified against the user's sex-specific ranges where available."""
+    user_id = user["_id"]
+    sex = user.get("sex")
+
     # Validate extension
     ext = os.path.splitext(filename.lower())[1]
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF and Image files (PNG, JPG, JPEG, BMP, TIFF) are supported."
+        )
+
+    # Guard against oversized uploads (read fully into memory before OCR)
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Maximum upload size is 10 MB.",
         )
 
     # 1. OCR extract text
@@ -135,14 +171,14 @@ def process_upload(file_bytes: bytes, filename: str, user_id: int) -> Dict[str, 
         unit = item.get("unit") or ""
         ref_range = item.get("reference_range") or None
         lab_name = item.get("test_name") or item.get("name") or "Unknown Test"
-        classification = classify_lab_value(lab_name, val)
+        classification = classify_lab_value(lab_name, val, sex)
 
         labs_to_create.append({
             "test_name": lab_name,
             "value": val,
             "unit": unit,
             "status": classification["status"],
-            "reference_range": ref_range,
+            "reference_range": ref_range or classification["ref_range"],
         })
 
     if not labs_to_create:
@@ -154,19 +190,23 @@ def process_upload(file_bytes: bytes, filename: str, user_id: int) -> Dict[str, 
             )
         )
 
-    # 4. Save file locally
+    # 4. Generate a plain-language AI summary (degrades gracefully if Gemini is down)
+    summary = generate_report_summary(labs_to_create)
+
+    # 5. Save file locally
     safe_filename = f"test_{int(now.timestamp())}_{filename}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
     with open(file_path, "wb") as f:
         f.write(file_bytes)
 
-    # 5. Persist report + lab values
+    # 6. Persist report + lab values
     report_doc = report_repository.create(
         user_id=user_id,
         filename=filename,
         file_path=file_path,
         extracted_text=extracted_text,
         created_at=now,
+        summary=summary,
     )
 
     created_labs = []
@@ -223,6 +263,17 @@ def get_report_detail(report_id: int, user_id: int) -> Dict[str, Any]:
         [serialize_lab_value(lab) for lab in labs],
         detail=True,
     )
+
+
+def get_report_file(report_id: int, user_id: int) -> Dict[str, Any]:
+    """Return the stored file path + original filename for an owned report."""
+    report = report_repository.get_for_user(report_id, user_id)
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    file_path = report.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Original file is no longer available.")
+    return {"file_path": file_path, "filename": report.get("filename", "report")}
 
 
 def delete_report(report_id: int, user_id: int) -> None:

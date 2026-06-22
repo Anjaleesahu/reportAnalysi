@@ -7,3 +7,13 @@ export const sendMessage = async ({ message, history }) => {
   });
   return response.data;
 };
+
+export const getChatHistory = async () => {
+  const response = await client.get("/api/chat/history");
+  return response.data;
+};
+
+export const clearChatHistory = async () => {
+  const response = await client.delete("/api/chat/history");
+  return response.data;
+};

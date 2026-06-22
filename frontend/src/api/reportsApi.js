@@ -26,3 +26,18 @@ export const deleteReport = async (reportId) => {
   const response = await client.delete(`/api/reports/${reportId}`);
   return response.data;
 };
+
+// Download the original uploaded file (auth header is sent via the axios client).
+export const downloadReportFile = async (reportId, filename = "report") => {
+  const response = await client.get(`/api/reports/${reportId}/file`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
