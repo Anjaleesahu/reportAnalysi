@@ -1,12 +1,47 @@
 import json
 import re
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 from google import genai
 from google.genai import types
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+
+# Substrings that indicate a transient, retryable Gemini error.
+_TRANSIENT_MARKERS = (
+    "503", "unavailable", "overloaded", "high demand",
+    "429", "resource_exhausted", "rate limit", "try again",
+)
+
+
+def _is_transient(err: Exception) -> bool:
+    text = str(err).lower()
+    return any(marker in text for marker in _TRANSIENT_MARKERS)
+
+
+def _generate_content(client: genai.Client, contents, config=None, retries: int = 3):
+    """Call Gemini with retry+backoff on transient errors, then fall back to the
+    secondary model if the primary stays overloaded. Re-raises the last error."""
+    models = [settings.GEMINI_MODEL]
+    if settings.GEMINI_FALLBACK_MODEL and settings.GEMINI_FALLBACK_MODEL != settings.GEMINI_MODEL:
+        models.append(settings.GEMINI_FALLBACK_MODEL)
+
+    last_err: Optional[Exception] = None
+    for model in models:
+        for attempt in range(retries):
+            try:
+                return client.models.generate_content(
+                    model=model, contents=contents, config=config
+                )
+            except Exception as e:  # noqa: BLE001 - inspect message to decide retry
+                last_err = e
+                if _is_transient(e) and attempt < retries - 1:
+                    time.sleep(0.6 * (2 ** attempt))  # 0.6s, 1.2s, ...
+                    continue
+                break  # non-transient, or out of retries -> try next model
+    raise last_err
 
 
 def _normalize_test_name(name: str) -> str:
@@ -105,8 +140,8 @@ Example output:
 """ % text
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
+        response = _generate_content(
+            client,
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
@@ -164,15 +199,21 @@ Here is the user's uploaded lab test history:
 
         conversation += f"user: {user_message}"
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=conversation
-        )
+        response = _generate_content(client, contents=conversation)
 
         return response.text
 
     except Exception as e:
+        # After retries + fallback model, the upstream is still unavailable.
+        if _is_transient(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "The AI service is busy right now (high demand). "
+                    "Please try sending your message again in a few moments."
+                ),
+            )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Gemini chat response failed: {str(e)}"
+            detail=f"Gemini chat response failed: {str(e)}",
         )

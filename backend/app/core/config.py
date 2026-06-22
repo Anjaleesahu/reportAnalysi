@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     # External services
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Used automatically when the primary model is overloaded (503/UNAVAILABLE)
+    GEMINI_FALLBACK_MODEL: str = "gemini-2.0-flash"
     TESSERACT_CMD: Optional[str] = None
 
 
