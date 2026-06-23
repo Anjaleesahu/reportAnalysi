@@ -229,8 +229,8 @@ def process_upload(file_bytes: bytes, filename: str, user: Dict[str, Any]) -> Di
     )
 
 
-def list_reports(user_id: int):
-    return [serialize_report(r) for r in report_repository.list_by_user(user_id)]
+def list_reports(user_id: int, skip: int = 0, limit: int = 0):
+    return [serialize_report(r) for r in report_repository.list_by_user(user_id, skip, limit)]
 
 
 def get_lab_trends(user_id: int) -> Dict[str, Any]:
@@ -263,6 +263,52 @@ def get_report_detail(report_id: int, user_id: int) -> Dict[str, Any]:
         [serialize_lab_value(lab) for lab in labs],
         detail=True,
     )
+
+
+def add_lab_value(user: Dict[str, Any], report_id: int, test_name: str, value: float, unit: str = "") -> Dict[str, Any]:
+    """Manually add a lab value to an owned report (status computed)."""
+    user_id = user["_id"]
+    report = report_repository.get_for_user(report_id, user_id)
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+
+    classification = classify_lab_value(test_name, value, user.get("sex"))
+    lab = lab_value_repository.create(
+        user_id=user_id,
+        report_id=report_id,
+        test_name=test_name,
+        value=value,
+        unit=unit or "",
+        status=classification["status"],
+        reference_range=classification["ref_range"],
+        tested_at=report.get("created_at") or datetime.now(timezone.utc),
+    )
+    return serialize_lab_value(lab)
+
+
+def update_lab_value(user: Dict[str, Any], lab_id: int, test_name: str, value: float, unit: str = "") -> Dict[str, Any]:
+    """Edit an owned lab value; status + reference range are recomputed."""
+    user_id = user["_id"]
+    lab = lab_value_repository.get_for_user(lab_id, user_id)
+    if not lab:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lab value not found.")
+
+    classification = classify_lab_value(test_name, value, user.get("sex"))
+    updated = lab_value_repository.update(lab_id, {
+        "test_name": test_name,
+        "value": value,
+        "unit": unit or "",
+        "status": classification["status"],
+        "reference_range": classification["ref_range"],
+    })
+    return serialize_lab_value(updated)
+
+
+def delete_lab_value(user_id: int, lab_id: int) -> None:
+    lab = lab_value_repository.get_for_user(lab_id, user_id)
+    if not lab:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lab value not found.")
+    lab_value_repository.delete(lab_id)
 
 
 def get_report_file(report_id: int, user_id: int) -> Dict[str, Any]:

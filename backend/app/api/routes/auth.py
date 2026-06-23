@@ -55,3 +55,13 @@ def update_me(update: ProfileUpdate, current_user: dict = Depends(get_current_us
 @router.post("/change-password")
 def change_password(req: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
     return auth_service.change_password(current_user, req.current_password, req.new_password)
+
+
+@router.get("/export")
+def export_my_data(current_user: dict = Depends(get_current_user)):
+    return auth_service.export_account(current_user)
+
+
+@router.delete("/me")
+def delete_my_account(current_user: dict = Depends(get_current_user)):
+    return auth_service.delete_account(current_user["_id"])

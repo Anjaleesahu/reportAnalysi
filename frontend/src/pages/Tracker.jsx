@@ -1,14 +1,32 @@
 import { useState, useEffect } from "react";
 import DailyTracker from "../features/tracker/DailyTracker";
 import { getHistory, getSummary } from "../api/trackingApi";
-import { Calendar, Moon, Droplets, AlertCircle, TrendingUp, Flame } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Calendar, Moon, Droplets, AlertCircle, TrendingUp, Flame, Target } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
+const GoalBar = ({ label, value, goal, unit, color }) => {
+  const pct = goal ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+        <span className="text-[10px] font-bold text-slate-300">
+          {value || 0}{goal ? ` / ${goal}` : ""} {unit}
+        </span>
+      </div>
+      <div className="h-2 bg-[#050816] rounded-full overflow-hidden border border-slate-800">
+        <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+};
+
 const Tracker = () => {
   const [history, setHistory] = useState([]);
-  const [, setSummary] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -35,6 +53,9 @@ const Tracker = () => {
   const handleLogSuccess = () => {
     fetchTrackingData();
   };
+
+  // history is stored oldest-first, so the last item is the most recent log
+  const latest = history.length ? history[history.length - 1] : null;
 
   const chartData = history.map((item) => ({
     dateLabel: new Date(item.date).toLocaleDateString(undefined, {
@@ -70,8 +91,36 @@ const Tracker = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Left Column - Log Form */}
+          {/* Left Column - Goals/Streak + Log Form */}
           <div className="space-y-6">
+            {/* Streak + Goals */}
+            <div className="glass-panel p-5">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
+                <h4 className="font-display font-bold text-white text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4 text-indigo-400" />
+                  Goals & Streak
+                </h4>
+                <div className="flex items-center gap-1.5 text-amber-400" title="Consecutive logged days">
+                  <Flame className="h-4.5 w-4.5" />
+                  <span className="text-sm font-display font-black">{summary?.current_streak || 0}</span>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">day streak</span>
+                </div>
+              </div>
+
+              {summary?.sleep_goal || summary?.water_goal ? (
+                <div className="space-y-4">
+                  <GoalBar label="Sleep (latest)" value={latest?.sleep_hours} goal={summary?.sleep_goal} unit="hrs" color="bg-indigo-500" />
+                  <GoalBar label="Water (latest)" value={latest?.water_ml} goal={summary?.water_goal} unit="ml" color="bg-cyan-500" />
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Set daily sleep & water goals in your{" "}
+                  <Link to="/profile" className="text-indigo-400 font-bold hover:underline">profile</Link>{" "}
+                  to track progress here.
+                </p>
+              )}
+            </div>
+
             <DailyTracker onLogSuccess={handleLogSuccess} />
           </div>
 

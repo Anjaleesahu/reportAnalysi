@@ -43,3 +43,7 @@ def set_password(user_id: int, hashed_password: str) -> None:
     users_collection.update_one(
         {"_id": user_id}, {"$set": {"hashed_password": hashed_password}}
     )
+
+
+def delete(user_id: int) -> None:
+    users_collection.delete_one({"_id": user_id})

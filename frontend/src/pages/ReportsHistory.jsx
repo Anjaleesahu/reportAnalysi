@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Trash2, AlertCircle, FileText, ChevronDown, ChevronUp, Clock, Image as ImageIcon, Search, Download, FileDown } from "lucide-react";
-import { getHistory, getReport, deleteReport, downloadReportFile } from "../api/reportsApi";
+import { useNavigate } from "react-router-dom";
+import { Trash2, AlertCircle, FileText, ChevronDown, ChevronUp, Clock, Image as ImageIcon, Search, Download, FileDown, Pencil, Plus, Check, X, MessageCircleQuestion } from "lucide-react";
+import { getHistory, getReport, deleteReport, downloadReportFile, addLabValue, updateLabValue, deleteLabValue } from "../api/reportsApi";
 import { exportReportPdf } from "../utils/pdf";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";
@@ -8,14 +9,20 @@ import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 
 const isImage = (name = "") => /\.(png|jpe?g|bmp|tiff?)$/i.test(name);
+const PAGE_SIZE = 10;
 
 const ReportsHistory = () => {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [reportDetails, setReportDetails] = useState({});
   const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(null); // { labId, reportId, test_name, value, unit }
+  const [adding, setAdding] = useState(null); // { reportId, test_name, value, unit }
 
   const filteredReports = reports.filter((r) =>
     (r.filename || "").toLowerCase().includes(query.trim().toLowerCase())
@@ -26,6 +33,65 @@ const ReportsHistory = () => {
     const data = await getReport(reportId);
     setReportDetails((prev) => ({ ...prev, [reportId]: data }));
     return data;
+  };
+
+  const patchLabValues = (reportId, updater) => {
+    setReportDetails((prev) => {
+      const detail = prev[reportId];
+      if (!detail) return prev;
+      return { ...prev, [reportId]: { ...detail, lab_values: updater(detail.lab_values || []) } };
+    });
+  };
+
+  const handleAsk = (e, report) => {
+    e.stopPropagation();
+    const when = new Date(report.created_at).toLocaleDateString();
+    navigate("/chat", {
+      state: {
+        seed: `Please explain my lab report "${report.filename}" from ${when}. Summarize the key findings and highlight any abnormal values in simple terms.`,
+      },
+    });
+  };
+
+  const saveEdit = async (reportId) => {
+    try {
+      const updated = await updateLabValue(editing.labId, {
+        test_name: editing.test_name,
+        value: Number(editing.value),
+        unit: editing.unit,
+      });
+      patchLabValues(reportId, (labs) => labs.map((l) => (l.id === updated.id ? updated : l)));
+      setEditing(null);
+    } catch (err) {
+      console.error(err);
+      alert("Could not update the value.");
+    }
+  };
+
+  const removeLab = async (reportId, labId) => {
+    if (!window.confirm("Delete this lab value?")) return;
+    try {
+      await deleteLabValue(labId);
+      patchLabValues(reportId, (labs) => labs.filter((l) => l.id !== labId));
+    } catch (err) {
+      console.error(err);
+      alert("Could not delete the value.");
+    }
+  };
+
+  const saveAdd = async (reportId) => {
+    try {
+      const created = await addLabValue(reportId, {
+        test_name: adding.test_name,
+        value: Number(adding.value),
+        unit: adding.unit,
+      });
+      patchLabValues(reportId, (labs) => [...labs, created]);
+      setAdding(null);
+    } catch (err) {
+      console.error(err);
+      alert("Could not add the value.");
+    }
   };
 
   const handleDownload = async (e, report) => {
@@ -51,13 +117,27 @@ const ReportsHistory = () => {
 
   const fetchReports = async () => {
     try {
-      const data = await getHistory();
+      const data = await getHistory({ skip: 0, limit: PAGE_SIZE });
       setReports(data);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
       console.error(err);
       setError("Failed to retrieve report history.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const data = await getHistory({ skip: reports.length, limit: PAGE_SIZE });
+      setReports((prev) => [...prev, ...data]);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -191,6 +271,14 @@ const ReportsHistory = () => {
                     <Button
                       type="button"
                       variant="secondary"
+                      onClick={(e) => handleAsk(e, report)}
+                      className="p-2 transition duration-150"
+                      title="Ask AI about this report"
+                      icon={<MessageCircleQuestion className="h-4.5 w-4.5" />}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
                       onClick={(e) => handleExportPdf(e, report)}
                       className="p-2 transition duration-150"
                       title="Export as PDF"
@@ -237,24 +325,67 @@ const ReportsHistory = () => {
                           </div>
                         )}
 
-                        {/* Extracted Lab Values list */}
+                        {/* Extracted Lab Values list (editable) */}
                         <div>
-                          <h5 className="text-[9.5px] font-extrabold text-slate-500 uppercase tracking-wider mb-3.5">Parsed Biomarkers</h5>
+                          <div className="flex items-center justify-between mb-3.5">
+                            <h5 className="text-[9.5px] font-extrabold text-slate-500 uppercase tracking-wider">Parsed Biomarkers</h5>
+                            <button
+                              type="button"
+                              onClick={() => setAdding({ reportId: report.id, test_name: "", value: "", unit: "" })}
+                              className="flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Add value
+                            </button>
+                          </div>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {details.lab_values.map((lab) => {
+                              const isEditing = editing && editing.labId === lab.id;
+                              if (isEditing) {
+                                return (
+                                  <div key={lab.id} className="bg-[#0f172a]/60 border border-indigo-500/30 rounded-xl p-4 space-y-2">
+                                    <input className="premium-input w-full px-2.5 py-1.5 text-[11px]" value={editing.test_name} onChange={(e) => setEditing({ ...editing, test_name: e.target.value })} placeholder="Test name" />
+                                    <div className="flex gap-2">
+                                      <input type="number" step="any" className="premium-input w-full px-2.5 py-1.5 text-[11px]" value={editing.value} onChange={(e) => setEditing({ ...editing, value: e.target.value })} placeholder="Value" />
+                                      <input className="premium-input w-20 px-2.5 py-1.5 text-[11px]" value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} placeholder="Unit" />
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                      <button type="button" onClick={() => setEditing(null)} className="p-1.5 text-slate-400 hover:text-white cursor-pointer"><X className="h-4 w-4" /></button>
+                                      <button type="button" onClick={() => saveEdit(report.id)} className="p-1.5 text-emerald-400 hover:text-emerald-300 cursor-pointer"><Check className="h-4 w-4" /></button>
+                                    </div>
+                                  </div>
+                                );
+                              }
                               return (
-                                <div key={lab.id} className="bg-[#0f172a]/40 border border-slate-800/80 rounded-xl p-4">
+                                <div key={lab.id} className="group bg-[#0f172a]/40 border border-slate-800/80 rounded-xl p-4 relative">
                                   <div className="flex justify-between items-center mb-2">
-                                    <span className="text-[10px] text-slate-400 font-bold">{lab.test_name}</span>
+                                    <span className="text-[10px] text-slate-400 font-bold pr-12 truncate">{lab.test_name}</span>
                                     <Badge status={lab.status} size="xs" />
                                   </div>
                                   <div className="flex items-baseline gap-1 mt-1">
                                     <span className="text-xl font-display font-extrabold text-white">{lab.value}</span>
                                     <span className="text-[9.5px] text-slate-500 font-bold">{lab.unit}</span>
                                   </div>
+                                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button" title="Edit" onClick={() => setEditing({ labId: lab.id, reportId: report.id, test_name: lab.test_name, value: lab.value, unit: lab.unit || "" })} className="p-1 rounded bg-slate-900/80 text-slate-400 hover:text-indigo-300 cursor-pointer"><Pencil className="h-3 w-3" /></button>
+                                    <button type="button" title="Delete" onClick={() => removeLab(report.id, lab.id)} className="p-1 rounded bg-slate-900/80 text-slate-400 hover:text-red-400 cursor-pointer"><Trash2 className="h-3 w-3" /></button>
+                                  </div>
                                 </div>
                               );
                             })}
+
+                            {adding && adding.reportId === report.id && (
+                              <div className="bg-[#0f172a]/60 border border-emerald-500/30 rounded-xl p-4 space-y-2">
+                                <input className="premium-input w-full px-2.5 py-1.5 text-[11px]" value={adding.test_name} onChange={(e) => setAdding({ ...adding, test_name: e.target.value })} placeholder="Test name (e.g. Hemoglobin)" />
+                                <div className="flex gap-2">
+                                  <input type="number" step="any" className="premium-input w-full px-2.5 py-1.5 text-[11px]" value={adding.value} onChange={(e) => setAdding({ ...adding, value: e.target.value })} placeholder="Value" />
+                                  <input className="premium-input w-20 px-2.5 py-1.5 text-[11px]" value={adding.unit} onChange={(e) => setAdding({ ...adding, unit: e.target.value })} placeholder="Unit" />
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button type="button" onClick={() => setAdding(null)} className="p-1.5 text-slate-400 hover:text-white cursor-pointer"><X className="h-4 w-4" /></button>
+                                  <button type="button" disabled={!adding.test_name || adding.value === ""} onClick={() => saveAdd(report.id)} className="p-1.5 text-emerald-400 hover:text-emerald-300 disabled:opacity-40 cursor-pointer"><Check className="h-4 w-4" /></button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -272,6 +403,21 @@ const ReportsHistory = () => {
               </div>
             );
           })}
+
+          {hasMore && !query && (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                loading={loadingMore}
+                loadingText="Loading..."
+                onClick={loadMore}
+                className="px-5 py-2.5 text-xs"
+              >
+                Load More
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

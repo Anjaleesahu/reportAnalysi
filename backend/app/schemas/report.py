@@ -1,7 +1,14 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class LabValueInput(BaseModel):
+    """User-supplied lab value (manual entry/edit). Status + range are computed."""
+    test_name: str = Field(..., min_length=1)
+    value: float
+    unit: Optional[str] = ""
 
 
 class LabValueBase(BaseModel):

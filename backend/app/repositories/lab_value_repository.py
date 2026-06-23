@@ -37,5 +37,23 @@ def list_by_report(report_id: int) -> List[Dict[str, Any]]:
     return list(lab_values_collection.find({"report_id": report_id}).sort("tested_at", 1))
 
 
+def get_for_user(lab_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+    return lab_values_collection.find_one({"_id": lab_id, "user_id": user_id})
+
+
+def update(lab_id: int, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if fields:
+        lab_values_collection.update_one({"_id": lab_id}, {"$set": fields})
+    return lab_values_collection.find_one({"_id": lab_id})
+
+
+def delete(lab_id: int) -> None:
+    lab_values_collection.delete_one({"_id": lab_id})
+
+
 def delete_by_report(report_id: int) -> None:
     lab_values_collection.delete_many({"report_id": report_id})
+
+
+def delete_by_user(user_id: int) -> None:
+    lab_values_collection.delete_many({"user_id": user_id})

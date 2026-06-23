@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Send, AlertTriangle, ShieldCheck, HeartPulse, User, Trash2 } from "lucide-react";
 import { sendMessage, getChatHistory, clearChatHistory } from "../../api/chatApi";
 import Button from "../../components/ui/Button";
@@ -19,6 +20,8 @@ const Chatbot = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const location = useLocation();
+  const seedHandledRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,8 +31,9 @@ const Chatbot = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  // Load persisted conversation on open
+  // Load persisted conversation on open (skip when arriving with a seeded question)
   useEffect(() => {
+    if (location.state?.seed) return;
     let active = true;
     (async () => {
       try {
@@ -62,41 +66,26 @@ const Chatbot = () => {
     setError(null);
   };
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const doSend = async (text) => {
+    const userMessage = (text || "").trim();
+    if (!userMessage || loading) return;
 
-    const userMessage = input.trim();
-    const currentTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-    setInput("");
     setError(null);
     setLoading(true);
 
-    // Append user message with timestamp
+    // History excludes the welcome message and the about-to-be-added user message
+    const chatHistory = messages.slice(1).map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [
       ...prev,
-      { role: "user", content: userMessage, timestamp: currentTimestamp }
+      { role: "user", content: userMessage, timestamp: fmtTime(new Date()) },
     ]);
 
     try {
-      const chatHistory = messages.slice(1).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const data = await sendMessage({
-        message: userMessage,
-        history: chatHistory,
-      });
-
+      const data = await sendMessage({ message: userMessage, history: chatHistory });
       setMessages((prev) => [
         ...prev,
-        {
-          role: "model",
-          content: data.reply,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        },
+        { role: "model", content: data.reply, timestamp: fmtTime(new Date()) },
       ]);
     } catch (err) {
       console.error(err);
@@ -108,6 +97,24 @@ const Chatbot = () => {
       setLoading(false);
     }
   };
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    const text = input;
+    setInput("");
+    doSend(text);
+  };
+
+  // Auto-send a seeded question (from "Ask about this report")
+  useEffect(() => {
+    const seed = location.state?.seed;
+    if (seed && !seedHandledRef.current) {
+      seedHandledRef.current = true;
+      doSend(seed);
+      window.history.replaceState({}, document.title); // prevent resend on refresh
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   return (
     <div className="glass-panel flex flex-col h-[580px] w-full bg-[#0f172a]/20 border border-white/5 overflow-hidden">

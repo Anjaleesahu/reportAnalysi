@@ -12,6 +12,8 @@ def serialize_user(doc: Dict[str, Any]) -> Dict[str, Any]:
         "full_name": doc.get("full_name"),
         "sex": doc.get("sex"),
         "date_of_birth": dob,
+        "sleep_goal": doc.get("sleep_goal"),
+        "water_goal": doc.get("water_goal"),
         "created_at": doc.get("created_at"),
     }
 

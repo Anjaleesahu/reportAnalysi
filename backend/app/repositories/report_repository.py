@@ -25,8 +25,17 @@ def create(
     return doc
 
 
-def list_by_user(user_id: int) -> List[Dict[str, Any]]:
-    return list(reports_collection.find({"user_id": user_id}).sort("created_at", -1))
+def list_by_user(user_id: int, skip: int = 0, limit: int = 0) -> List[Dict[str, Any]]:
+    cursor = reports_collection.find({"user_id": user_id}).sort("created_at", -1)
+    if skip:
+        cursor = cursor.skip(skip)
+    if limit:
+        cursor = cursor.limit(limit)
+    return list(cursor)
+
+
+def count_by_user(user_id: int) -> int:
+    return reports_collection.count_documents({"user_id": user_id})
 
 
 def get_for_user(report_id: int, user_id: int) -> Optional[Dict[str, Any]]:
@@ -35,3 +44,7 @@ def get_for_user(report_id: int, user_id: int) -> Optional[Dict[str, Any]]:
 
 def delete(report_id: int) -> None:
     reports_collection.delete_one({"_id": report_id})
+
+
+def delete_by_user(user_id: int) -> None:
+    reports_collection.delete_many({"user_id": user_id})

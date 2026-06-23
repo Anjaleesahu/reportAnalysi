@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, UploadFile, File, status
 from fastapi.responses import FileResponse
 
-from app.schemas.report import MedicalReportResponse, MedicalReportDetail
+from app.schemas.report import MedicalReportResponse, MedicalReportDetail, LabValueResponse, LabValueInput
 from app.services import report_service
 from app.api.deps import get_current_user
 
@@ -20,8 +20,28 @@ async def upload_report(
 
 
 @router.get("/history", response_model=List[MedicalReportResponse])
-def get_reports_history(current_user: dict = Depends(get_current_user)):
-    return report_service.list_reports(current_user["_id"])
+def get_reports_history(
+    skip: int = 0,
+    limit: int = 0,
+    current_user: dict = Depends(get_current_user),
+):
+    return report_service.list_reports(current_user["_id"], skip, limit)
+
+
+@router.post("/{report_id}/lab-values", response_model=LabValueResponse)
+def add_lab_value(report_id: int, lab: LabValueInput, current_user: dict = Depends(get_current_user)):
+    return report_service.add_lab_value(current_user, report_id, lab.test_name, lab.value, lab.unit)
+
+
+@router.put("/lab-values/{lab_id}", response_model=LabValueResponse)
+def update_lab_value(lab_id: int, lab: LabValueInput, current_user: dict = Depends(get_current_user)):
+    return report_service.update_lab_value(current_user, lab_id, lab.test_name, lab.value, lab.unit)
+
+
+@router.delete("/lab-values/{lab_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_lab_value(lab_id: int, current_user: dict = Depends(get_current_user)):
+    report_service.delete_lab_value(current_user["_id"], lab_id)
+    return None
 
 
 @router.get("/lab-trends")

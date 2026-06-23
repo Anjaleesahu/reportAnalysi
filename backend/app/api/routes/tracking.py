@@ -21,4 +21,4 @@ def get_tracking_history(days: int = 30, current_user: dict = Depends(get_curren
 
 @router.get("/summary", response_model=MonthlySummaryResponse)
 def get_monthly_summary(current_user: dict = Depends(get_current_user)):
-    return tracking_service.get_monthly_summary(current_user["_id"])
+    return tracking_service.get_monthly_summary(current_user)

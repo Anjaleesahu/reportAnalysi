@@ -18,6 +18,8 @@ class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     sex: Optional[Sex] = None
     date_of_birth: Optional[date] = None
+    sleep_goal: Optional[float] = Field(default=None, ge=0, le=24)
+    water_goal: Optional[int] = Field(default=None, ge=0)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -49,4 +51,6 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     sex: Optional[Sex] = None
     date_of_birth: Optional[date] = None
+    sleep_goal: Optional[float] = None
+    water_goal: Optional[int] = None
     created_at: datetime

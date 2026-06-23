@@ -6,7 +6,7 @@ import BiomarkerComparison from "../features/dashboard/BiomarkerComparison";
 import { getLabTrends } from "../api/reportsApi";
 import { getSummary } from "../api/trackingApi";
 import { exportDashboardPdf } from "../utils/pdf";
-import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, AlertTriangle, FileDown } from "lucide-react";
+import { ShieldAlert, Activity, Heart, Sparkles, PlusCircle, Droplet, AlertTriangle, FileDown, TrendingUp, TrendingDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
@@ -57,6 +57,25 @@ const Dashboard = () => {
   const glucose = getLatestBiomarker(["glucose", "blood sugar", "fasting blood sugar"]);
   const hemoglobin = getLatestBiomarker(["hemoglobin", "haemoglobin"]);
   const cholesterol = getLatestBiomarker(["cholesterol", "total cholesterol"]);
+
+  // Trend insights: flag biomarkers that changed notably between the last two readings
+  const insights = [];
+  if (trends) {
+    Object.entries(trends).forEach(([name, series]) => {
+      if (!Array.isArray(series) || series.length < 2) return;
+      const last = series[series.length - 1];
+      const prev = series[series.length - 2];
+      const a = Number(prev.value);
+      const b = Number(last.value);
+      if (Number.isNaN(a) || Number.isNaN(b) || a === b) return;
+      const pct = a !== 0 ? ((b - a) / a) * 100 : 0;
+      const abnormal = last.status === "High" || last.status === "Low";
+      if (Math.abs(pct) >= 5 || abnormal) {
+        insights.push({ name, up: b > a, pct: Math.abs(pct), status: last.status, value: last.value, unit: last.unit });
+      }
+    });
+  }
+  insights.sort((x, y) => y.pct - x.pct);
 
   const handleExportPdf = () => {
     exportDashboardPdf({
@@ -241,6 +260,31 @@ const Dashboard = () => {
 
             {/* Right Column (Averages & Health Alerts) */}
             <div className="space-y-8">
+              {/* Trend Insights */}
+              {insights.length > 0 && (
+                <div className="glass-panel p-6">
+                  <h4 className="font-display font-bold text-white text-sm mb-4 flex items-center gap-2 border-b border-slate-800/80 pb-3">
+                    <TrendingUp className="h-4.5 w-4.5 text-indigo-400" />
+                    Trend Insights
+                  </h4>
+                  <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
+                    {insights.map((ins, i) => {
+                      const concerning = ins.status === "High" || ins.status === "Low";
+                      return (
+                        <div key={i} className="flex items-center justify-between text-xs p-3 rounded-xl border border-slate-800/80 bg-[#0f172a]/40">
+                          <span className="font-bold text-slate-300 truncate pr-2">{ins.name}</span>
+                          <span className={`flex items-center gap-1 font-bold shrink-0 ${concerning ? (ins.up ? "text-red-400" : "text-amber-400") : "text-slate-400"}`}>
+                            {ins.up ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                            {ins.up ? "+" : "−"}{ins.pct.toFixed(0)}%
+                            {concerning && <span className="text-[9px] uppercase ml-1">{ins.status}</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Monthly Alerts */}
               <div className="glass-panel p-6 bg-slate-900/10 border-indigo-500/5 hover:border-indigo-500/10 transition-all duration-300">
                 <h4 className="font-display font-bold text-white text-sm mb-4 flex items-center gap-2 border-b border-slate-800/80 pb-3">

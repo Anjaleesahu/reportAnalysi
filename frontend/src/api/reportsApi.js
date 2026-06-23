@@ -7,8 +7,23 @@ export const uploadReport = async (file) => {
   return response.data;
 };
 
-export const getHistory = async () => {
-  const response = await client.get("/api/reports/history");
+export const getHistory = async ({ skip, limit } = {}) => {
+  const response = await client.get("/api/reports/history", { params: { skip, limit } });
+  return response.data;
+};
+
+export const addLabValue = async (reportId, { test_name, value, unit }) => {
+  const response = await client.post(`/api/reports/${reportId}/lab-values`, { test_name, value, unit });
+  return response.data;
+};
+
+export const updateLabValue = async (labId, { test_name, value, unit }) => {
+  const response = await client.put(`/api/reports/lab-values/${labId}`, { test_name, value, unit });
+  return response.data;
+};
+
+export const deleteLabValue = async (labId) => {
+  const response = await client.delete(`/api/reports/lab-values/${labId}`);
   return response.data;
 };
 

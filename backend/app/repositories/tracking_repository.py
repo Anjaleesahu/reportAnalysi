@@ -44,3 +44,11 @@ def list_since(user_id: int, since_dt: datetime) -> List[Dict[str, Any]]:
     return list(
         daily_tracks_collection.find({"user_id": user_id, "date": {"$gte": since_dt}})
     )
+
+
+def list_all_by_user(user_id: int) -> List[Dict[str, Any]]:
+    return list(daily_tracks_collection.find({"user_id": user_id}).sort("date", -1))
+
+
+def delete_by_user(user_id: int) -> None:
+    daily_tracks_collection.delete_many({"user_id": user_id})

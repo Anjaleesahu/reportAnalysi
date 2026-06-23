@@ -1,19 +1,24 @@
 import { useState } from "react";
-import { UserCog, Save, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { UserCog, Save, KeyRound, CheckCircle2, AlertCircle, Download, Trash2, ShieldAlert, Target } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { updateProfile, changePassword } from "../api/authApi";
+import { updateProfile, changePassword, exportData, deleteAccount } from "../api/authApi";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
 
 const Profile = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(user?.full_name || "");
   const [sex, setSex] = useState(user?.sex || "");
   const [dob, setDob] = useState(user?.date_of_birth || "");
+  const [sleepGoal, setSleepGoal] = useState(user?.sleep_goal ?? "");
+  const [waterGoal, setWaterGoal] = useState(user?.water_goal ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -32,6 +37,8 @@ const Profile = () => {
         full_name: fullName || null,
         sex: sex || null,
         date_of_birth: dob || null,
+        sleep_goal: sleepGoal === "" ? null : Number(sleepGoal),
+        water_goal: waterGoal === "" ? null : Number(waterGoal),
       });
       updateUser(updated);
       setProfileMsg({ type: "success", text: "Profile updated successfully." });
@@ -62,6 +69,42 @@ const Profile = () => {
       });
     } finally {
       setSavingPwd(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setBusy(true);
+    try {
+      const data = await exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "aurahealth_data_export.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Could not export your data.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Delete your account and ALL data permanently? This cannot be undone.")) return;
+    if (!window.confirm("Are you absolutely sure? This is irreversible.")) return;
+    setBusy(true);
+    try {
+      await deleteAccount();
+      logout();
+      navigate("/login");
+    } catch (err) {
+      console.error(err);
+      alert("Could not delete your account.");
+      setBusy(false);
     }
   };
 
@@ -119,6 +162,23 @@ const Profile = () => {
               <input type="date" className={inputClass} value={dob || ""} onChange={(e) => setDob(e.target.value)} />
             </div>
           </div>
+
+          <div className="pt-2 border-t border-slate-800/60">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5 mb-3 mt-3">
+              <Target className="h-3.5 w-3.5" /> Daily Health Goals
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Sleep Goal (hours)</label>
+                <input type="number" step="0.5" min="0" max="24" className={inputClass} value={sleepGoal} onChange={(e) => setSleepGoal(e.target.value)} placeholder="e.g. 8" />
+              </div>
+              <div>
+                <label className={labelClass}>Water Goal (ml)</label>
+                <input type="number" step="100" min="0" className={inputClass} value={waterGoal} onChange={(e) => setWaterGoal(e.target.value)} placeholder="e.g. 2500" />
+              </div>
+            </div>
+          </div>
+
           <Button type="submit" loading={savingProfile} icon={<Save className="h-4 w-4" />} className="inline-flex items-center gap-2 justify-center px-5 py-2.5 text-xs">
             Save Changes
           </Button>
@@ -154,6 +214,40 @@ const Profile = () => {
             Update Password
           </Button>
         </form>
+      </Card>
+
+      {/* Data & Privacy */}
+      <Card className="p-6">
+        <h4 className="font-display font-bold text-white text-sm mb-5 border-b border-slate-800/80 pb-3 flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-indigo-400" />
+          Data & Privacy
+        </h4>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            loading={busy}
+            onClick={handleExport}
+            icon={<Download className="h-4 w-4" />}
+            className="inline-flex items-center gap-2 justify-center px-5 py-2.5 text-xs"
+          >
+            Export My Data (JSON)
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy}
+            onClick={handleDeleteAccount}
+            icon={<Trash2 className="h-4 w-4" />}
+            className="inline-flex items-center gap-2 justify-center px-5 py-2.5 text-xs border border-red-500/30"
+          >
+            Delete My Account
+          </Button>
+        </div>
+        <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
+          Export downloads all your reports, lab values, tracking logs, and chats. Deleting your
+          account permanently removes all of this data and cannot be undone.
+        </p>
       </Card>
     </div>
   );

@@ -31,3 +31,13 @@ export const changePassword = async ({ current_password, new_password }) => {
   });
   return response.data;
 };
+
+export const exportData = async () => {
+  const response = await client.get("/api/auth/export");
+  return response.data;
+};
+
+export const deleteAccount = async () => {
+  const response = await client.delete("/api/auth/me");
+  return response.data;
+};

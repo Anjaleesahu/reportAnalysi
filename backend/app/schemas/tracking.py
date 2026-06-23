@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -28,3 +28,6 @@ class MonthlySummaryResponse(BaseModel):
     logged_days: int
     frequent_symptoms: List[str]
     alerts: List[str]
+    current_streak: int = 0
+    sleep_goal: Optional[float] = None
+    water_goal: Optional[int] = None

@@ -12,6 +12,35 @@ def _to_datetime(d: date) -> datetime:
     return datetime(d.year, d.month, d.day)
 
 
+def _compute_streak(tracks: List[Dict[str, Any]]) -> int:
+    """Consecutive logged days ending today (or yesterday)."""
+    days = set()
+    for t in tracks:
+        d = t.get("date")
+        if hasattr(d, "date"):
+            d = d.date()
+        if d:
+            days.add(d)
+    if not days:
+        return 0
+    today = date.today()
+    if today in days:
+        cursor = today
+    elif (today - timedelta(days=1)) in days:
+        cursor = today - timedelta(days=1)
+    else:
+        return 0
+    streak = 0
+    while cursor in days:
+        streak += 1
+        cursor = cursor - timedelta(days=1)
+    return streak
+
+
+def get_streak(user_id: int) -> int:
+    return _compute_streak(tracking_repository.list_all_by_user(user_id))
+
+
 def log_daily(user_id: int, track_in: DailyTrackCreate) -> Dict[str, Any]:
     symptoms_str = ",".join(track_in.symptoms)
     track_date = _to_datetime(track_in.date)
@@ -40,7 +69,12 @@ def get_history(user_id: int, days: int = 30) -> List[Dict[str, Any]]:
     return [serialize_track(t) for t in tracking_repository.list_by_user(user_id, days)]
 
 
-def get_monthly_summary(user_id: int) -> Dict[str, Any]:
+def get_monthly_summary(user: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = user["_id"]
+    sleep_goal = user.get("sleep_goal")
+    water_goal = user.get("water_goal")
+    streak = get_streak(user_id)
+
     today = date.today()
     thirty_days_ago = today - timedelta(days=30)
 
@@ -54,6 +88,9 @@ def get_monthly_summary(user_id: int) -> Dict[str, Any]:
             "logged_days": 0,
             "frequent_symptoms": [],
             "alerts": ["No health tracking records found in last 30 days."],
+            "current_streak": streak,
+            "sleep_goal": sleep_goal,
+            "water_goal": water_goal,
         }
 
     total_sleep = sum(t.get("sleep_hours", 0) for t in tracks)
@@ -92,4 +129,7 @@ def get_monthly_summary(user_id: int) -> Dict[str, Any]:
         "logged_days": logged_days,
         "frequent_symptoms": frequent_symptoms,
         "alerts": alerts,
+        "current_streak": streak,
+        "sleep_goal": sleep_goal,
+        "water_goal": water_goal,
     }

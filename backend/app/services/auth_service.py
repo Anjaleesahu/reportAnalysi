@@ -4,8 +4,20 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException, status
 
 from app.core.security import hash_password, verify_password, create_access_token
-from app.repositories import user_repository
-from app.db.serializers import serialize_user
+from app.repositories import (
+    user_repository,
+    report_repository,
+    lab_value_repository,
+    tracking_repository,
+    chat_repository,
+)
+from app.db.serializers import (
+    serialize_user,
+    serialize_report,
+    serialize_lab_value,
+    serialize_track,
+    serialize_chat_message,
+)
 
 
 def _to_datetime(d: Optional[date]) -> Optional[datetime]:
@@ -38,14 +50,42 @@ def register_user(
 
 def update_profile(user_id: int, fields: Dict[str, Any]) -> dict:
     update = {}
-    if "full_name" in fields and fields["full_name"] is not None:
+    if fields.get("full_name") is not None:
         update["full_name"] = fields["full_name"]
-    if "sex" in fields and fields["sex"] is not None:
+    if fields.get("sex") is not None:
         update["sex"] = fields["sex"]
-    if "date_of_birth" in fields and fields["date_of_birth"] is not None:
+    if fields.get("date_of_birth") is not None:
         update["date_of_birth"] = _to_datetime(fields["date_of_birth"])
+    if fields.get("sleep_goal") is not None:
+        update["sleep_goal"] = fields["sleep_goal"]
+    if fields.get("water_goal") is not None:
+        update["water_goal"] = fields["water_goal"]
     updated = user_repository.update_fields(user_id, update)
     return serialize_user(updated)
+
+
+def export_account(user: Dict[str, Any]) -> dict:
+    """Return every piece of the user's data as a JSON-serializable dict."""
+    user_id = user["_id"]
+    return {
+        "profile": serialize_user(user),
+        "reports": [
+            serialize_report(r, detail=True) for r in report_repository.list_by_user(user_id)
+        ],
+        "lab_values": [serialize_lab_value(l) for l in lab_value_repository.list_by_user(user_id)],
+        "daily_tracks": [serialize_track(t) for t in tracking_repository.list_all_by_user(user_id)],
+        "chat_messages": [serialize_chat_message(m) for m in chat_repository.list_by_user(user_id, limit=10000)],
+    }
+
+
+def delete_account(user_id: int) -> dict:
+    """Permanently delete the user and all associated data."""
+    lab_value_repository.delete_by_user(user_id)
+    report_repository.delete_by_user(user_id)
+    tracking_repository.delete_by_user(user_id)
+    chat_repository.clear_by_user(user_id)
+    user_repository.delete(user_id)
+    return {"message": "Account and all associated data deleted."}
 
 
 def change_password(user: Dict[str, Any], current_password: str, new_password: str) -> dict:
